@@ -1,0 +1,107 @@
+Templates vast.ai pour clusmi/rentingminers
+===========================================
+Launch mode : Docker ENTRYPOINT  ·  champ des arguments : vide.
+Remplace POOL:PORT par ta pool, ADRESSE_... par tes wallets, FARM par le nom du worker.
+Deux façons de saisir : dans le champ « Docker Options », les lignes ci-dessous telles
+quelles (avec -e et les guillemets) ; ou dans la section « Environment Variables », une
+case par variable, avec la valeur SANS guillemets.
+
+Sur vast.ai, les variables vivent dans le template : fais UN TEMPLATE PAR MINEUR GPU, et
+pour changer de mineur sur une location, choisis l'autre template avec le menu 2 de
+Vast-Switch-Log (changement de template + recycle).
+
+--- Pearl, GPU seul : un template par mineur (chaque mineur a SA syntaxe) ---
+
+SRBMiner
+-e GPU_MINER=srbminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker FARM"
+
+ForgeMiner (RTX 5090 : pilote NVIDIA 580 ou plus sur l'hôte)
+-e GPU_MINER=forgeminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker FARM"
+
+krig (Kryptex) : pas d'option worker, il va dans le wallet (ADRESSE.FARM ou ADRESSE/FARM selon la pool)
+-e GPU_MINER=krigminer -e GPU_ARGS="--url POOL:PORT --user ADRESSE_PEARL.FARM"
+
+PeakMiner (--coin pearl obligatoire)
+-e GPU_MINER=peakminer -e GPU_ARGS="--coin pearl -o POOL:PORT -u ADRESSE_PEARL -w FARM"
+
+RGminer (--proto obligatoire pour parler à une pool classique : herominers, kryptex, f2pool, alphapool, pearlfortune, suprnova)
+-e GPU_MINER=rgminer -e GPU_ARGS="--algo pearl --proto herominers --stratum POOL:PORT --wallet ADRESSE_PEARL --worker FARM"
+
+--- Pearl (GPU, SRBMiner) + Monero (CPU, XMRig) ---
+
+-e GPU_MINER=srbminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker FARM" -e CPU_MINER=xmrig -e CPU_ARGS="--coin monero -o xmr.kryptex.network:7029 -u ADRESSE_MONERO/RENT -t 184 -k"
+
+--- Pearl (GPU, SRBMiner) + DragonX (CPU, SRBMiner) ---
+
+-e GPU_MINER=srbminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker FARM" -e CPU_MINER=srbminer -e CPU_ARGS="--algorithm randomdrgx --pool POOL_DRAGONX:PORT --wallet ADRESSE_DRAGONX.RENT --cpu-threads 180"
+
+--- Monero seul (CPU, XMRig) ---
+
+-e CPU_MINER=xmrig -e CPU_ARGS="--coin monero -o xmr.kryptex.network:7029 -u ADRESSE_MONERO/RENT -t 184 -k"
+
+Règle : un côté démarre seulement si son MINER et ses ARGS sont renseignés tous les deux.
+Rien n'est prérempli : sans GPU_MINER + GPU_ARGS, pas de minage GPU ; sans CPU_MINER + CPU_ARGS,
+pas de minage CPU.
+
+Pour vérifier un template sans miner : ajoute -e DRY_RUN=1, les commandes complètes
+s'affichent dans les logs, puis enlève-le.
+
+Hashrate dans les logs (lu par Salad-Switch-Log et Vast-Switch-Log) : SRBMiner l'écrit
+lui-même ; pour RGminer l'image le lit sur son API et l'écrit au même format ; pour
+ForgeMiner, krig et PeakMiner, pas encore (l'image recopie une fois la réponse brute de
+leur API dans les logs : envoie-la pour que la lecture soit écrite).
+
+
+Arguments, mineur par mineur (aide-mémoire)
+===========================================
+                srbminer                forgeminer                 krigminer                 peakminer               rgminer
+Algo            --algorithm pearlhash   --algorithm pearlhash      (--coin pearl, défaut)    --coin pearl (requis)   --algo pearl
+Protocole       -                       -                          -                         -                       --proto herominers|kryptex|...
+Pool            --pool H:P              --pool H:P[,H2:P2]         --url H:P [--url H2:P2]   -o H:P [-o H2:P2]       --stratum H:P[,H2:P2]
+TLS             --tls true              auto (ssl://H:P)           stratum+ssl://H:P         auto (stratum+ssl://)   stratum+tls://H:P ou --stratum-tls
+Wallet          --wallet ADR            --wallet ADR               --user ADR                -u ADR                  --wallet ADR
+Worker          --worker NOM            --worker NOM               dans le wallet : ADR.NOM  -w NOM (ou -u ADR.NOM)  --worker NOM
+Mot de passe    --password x            --password x               -p x                      -p x                    --stratum-pass x
+Cartes          --gpu-id 0,1            --gpu 0,1                  -d 0,1                    -d 0,1                  -d 0,1
+Ajouté par      --disable-cpu           --no-color                 --no-tui --no-rocm        --no-color              --plain-console --api-host 127.0.0.1
+l'image         --log-file              --api-bind 127.0.0.1:7777  --api-port 12000                                  --api-port 9200 --watchdog=off
+
+
+SaladCloud (Pearl seul, GPU)
+============================
+Container group → Docker Run (ou Environment Variables, une case par variable, valeurs
+SANS guillemets). Sur Salad, une machine = une carte, donc le worker est le même sur tous
+les replicas ; la pool affiche leur hashrate cumulé. Pour changer de mineur sur un groupe
+existant : menu 3 de Salad-Switch-Log, « Mineur GPU et ses arguments » (Salad redéploie
+toutes les machines du groupe).
+
+--- SRBMiner avec chien de garde, première mise en service : mode observe (surveille, écrit ses verdicts, n'agit pas) ---
+
+docker run --gpus all -e GPU_MINER=srbminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker SALAD" -e SALAD_WATCHDOG=observe -e SALAD_MIN_HASHRATE=5090=300T,4090=250T,3090=100T -e SALAD_MAX_RESTARTS=5 clusmi/rentingminers:AAAA-MM-JJ-HHMM
+
+--- SRBMiner, ensuite : mode reallocate (demande à Salad une autre machine quand une règle se déclenche) ---
+
+docker run --gpus all -e GPU_MINER=srbminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker SALAD" -e SALAD_WATCHDOG=reallocate -e SALAD_MIN_HASHRATE=5090=300T,4090=250T,3090=100T -e SALAD_MAX_RESTARTS=5 clusmi/rentingminers:AAAA-MM-JJ-HHMM
+
+--- Autres mineurs (chien de garde ignoré pour l'instant : SRBMiner seulement) ---
+
+docker run --gpus all -e GPU_MINER=forgeminer -e GPU_ARGS="--algorithm pearlhash --pool POOL:PORT --wallet ADRESSE_PEARL --worker SALAD" clusmi/rentingminers:AAAA-MM-JJ-HHMM
+docker run --gpus all -e GPU_MINER=krigminer -e GPU_ARGS="--url POOL:PORT --user ADRESSE_PEARL.SALAD" clusmi/rentingminers:AAAA-MM-JJ-HHMM
+docker run --gpus all -e GPU_MINER=peakminer -e GPU_ARGS="--coin pearl -o POOL:PORT -u ADRESSE_PEARL -w SALAD" clusmi/rentingminers:AAAA-MM-JJ-HHMM
+docker run --gpus all -e GPU_MINER=rgminer -e GPU_ARGS="--algo pearl --proto herominers --stratum POOL:PORT --wallet ADRESSE_PEARL --worker SALAD" clusmi/rentingminers:AAAA-MM-JJ-HHMM
+
+Règles du chien de garde (actif seulement sur Salad, jamais sur vast.ai, et seulement avec
+GPU_MINER=srbminer pour l'instant) :
+- après 5 min de répit (SALAD_GRACE=300) suivant chaque démarrage du mineur GPU, 3 lectures
+  consécutives sous le seuil de la carte (SALAD_BAD_READINGS=3) donnent un verdict ;
+- une carte dont le modèle n'est pas dans SALAD_MIN_HASHRATE n'est pas surveillée (ligne
+  « Pas de seuil pour ... » dans les logs) ; la clé 3090 couvre aussi la 3090 Ti ;
+- SALAD_MAX_RESTARTS=5 : verdict si le mineur GPU redémarre 5 fois en 10 min (facultatif) ;
+- deux lectures à 0 H/s de suite (SALAD_ZERO_READINGS=2, 0 = désactivé) : verdict ;
+- plus aucune statistique pendant 2 min (SALAD_STALE_MINUTES=2, 0 = désactivé) : verdict ;
+- après un verdict, 10 min de pause avant une nouvelle décision.
+Les lignes du chien de garde commencent par [salad] dans les logs du conteneur.
+AAAA-MM-JJ-HHMM = étiquette datée du build (résumé du workflow GitHub, ex. 2026-10-03-2145).
+Sur Salad, toujours l'étiquette datée, jamais latest : Salad garde l'image copiée à la création
+du groupe tant que l'étiquette ne change pas. Nouveau build = Edit → Image Source → nouvelle
+étiquette. Changer les variables ou l'étiquette redéploie tous les replicas.
