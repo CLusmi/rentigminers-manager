@@ -1,0 +1,130 @@
+﻿Vast-Switch-Log : gestion des locations Vast.ai
+================================================
+
+Lancement
+---------
+Windows : garde vast-switch-log.bat et vast-switch-log.ps1 dans le même
+dossier, puis double-clique sur vast-switch-log.bat.
+macOS : voir README.txt (en anglais) : PowerShell 7 à installer une fois,
+puis double-clic sur vast-switch-log.command ; les clés supplémentaires vont
+dans le Trousseau d'accès.
+
+La langue suit celle du système (français -> français, sinon anglais) ;
+-Language en ou fr pour forcer (voir « Options »).
+
+Si Windows affiche « Windows a protégé votre ordinateur » : clique sur
+« Informations complémentaires », puis sur « Exécuter quand même ».
+Pour ne plus avoir ce message : clic droit sur chaque fichier > Propriétés >
+coche « Débloquer » > OK.
+
+Menu
+----
+1. Voir mes locations
+   Tableau de tes locations : état, depuis quand, prix/h, hashrate (dernière
+   lecture de chaque GPU dans les logs de la location, lus en parallèle ;
+   compte quelques secondes par vague de 6 locations), template, image qui
+   tourne (en jaune si elle diffère de celle du template).
+   Sous le tableau : total $/h et $/jour, hashrate total des locations en
+   marche, puis crédit Vast.ai et autonomie au rythme actuel (jaune sous
+   24 h, rouge sous 6 h). Le crédit vient de Vast.ai, rien à saisir.
+   Puis la ligne PRL : cours (CoinGecko, en $, variation sur 24 h), hashrate
+   du réseau, récompense et temps de bloc (whattomine), rafraîchis toutes les
+   5 min ; et la rentabilité de ton hashrate total, source par source :
+     Rentabilité pour 2 736,8 TH/s  ·  coût 513,44 $/jour
+     Source       PRL/jour   $/jour    Résultat/jour
+     whattomine       57,1   57,65 $   -455,79 $
+     unMineable       54,2   54,19 $   -459,25 $
+     HeroMiners       55,7   55,70 $   -457,74 $
+   (une source qui ne répond pas est absente), puis,
+   si tu as enregistré une adresse (menu P), le tableau « Puissance » :
+   matériel / à la pool / ratio, par pool et en total.
+   Les nombres s'affichent à la française en français (1 234,56 $) et à
+   l'anglaise en anglais ($1,234.56), quel que soit le réglage du système.
+
+2. Changer le template
+   - tu choisis les locations : 1   ou   1,3   ou   2-4   ou   T (toutes) ;
+   - la liste de tes templates privés s'affiche (une ligne par template,
+     toujours la version la plus récente) ;
+   - tu tapes le numéro du template : sa configuration s'affiche (image,
+     mode de lancement, variables, ports, script de démarrage) ;
+   - « o » pour appliquer, « n » pour en choisir un autre ;
+   - le script fait « update » puis « recycle » (seul moyen d'appliquer un
+     template), attend le redémarrage (10 min maximum), affiche les
+     100 dernières lignes de logs, puis un résumé.
+
+3. Redémarrer (reboot)
+   Arrête puis relance le conteneur, sans changer de template ni d'image.
+   Suivi toutes les 5 s, logs, puis résumé.
+
+4. Logs en direct
+   Une location, un filtre (tout, hashrates, GPU seulement, CPU seulement,
+   shares et erreurs, messages de l'image, ou un texte libre), puis les
+   nouvelles lignes s'affichent au fur et à mesure, rafraîchies toutes les
+   5 s (option -LogRefreshSeconds). Touche Q ou Échap pour revenir au menu.
+   Rien n'est modifié.
+
+5. Clés API Vast.ai (basculer, ajouter, retirer)
+   Tableau des clés connues : compte, 4 derniers caractères, clé active.
+   - un numéro : bascule sur cette clé (retestée avant, une clé révoquée
+     ne remplace pas l'active) ; tous les menus passent sur ce compte ;
+   - A : ajoute une clé (saisie masquée, test, compte et crédit affichés,
+     confirmation) et l'active ;
+   - S : retire une clé de la liste (elle reste valable sur Vast.ai) ;
+   - C : si la clé active de vastai n'est pas encore dans la liste.
+   Le titre du menu rappelle le compte actif.
+
+6. Cartes : prix et offres
+   Pour les cartes que tu tapes (Entrée = 5090, 4090, 3090 ; « 3090 Ti »
+   marche aussi) : nombre d'offres louables maintenant (à la demande,
+   machines vérifiées), prix mini et médian par carte et par heure, et
+   l'offre la moins chère (nombre de cartes, pays, fiabilité, débit).
+   C'est la même recherche que « vastai search offers ».
+
+P. Pool : mon portefeuille
+   Tu donnes l'adresse PRL que tu mines sur HeroMiners et/ou unMineable
+   (gardée dans pools.json, à côté de keys.json ; une adresse est publique).
+   Le menu affiche d'abord le tableau « Puissance » : par pool, matériel
+   (hashrate total des logs du dernier menu 1), à la pool (ce que la pool voit
+   à l'instant) et ratio = pool ÷ matériel (vert ≥ 0,95, jaune de 0,85 à 0,95,
+   rouge en dessous), puis le total cumulé des pools. Ensuite un cadre par
+   pool : puissance (instant, 1 h, 24 h), workers, gains (HeroMiners : hier,
+   moyenne 7 jours, payé 24 h / 7 j ; unMineable : 24 h, 7 j, 30 j), solde.
+   Le menu 1 affiche le même tableau « Puissance » sous la rentabilité.
+   Option 4 : une autre pool (sans API) avec un ratio saisi à la main (ex. 0,8)
+   apparaît dans le tableau de rentabilité comme « Kryptex (×0,80) ».
+
+7. Quitter (Q marche aussi)
+
+Clés API
+--------
+Si Vast.ai refuse ta clé au démarrage, le script te demande la nouvelle
+(saisie masquée), la teste et l'enregistre avec « vastai set api-key ».
+Crée tes clés sur cloud.vast.ai > Account > Keys.
+
+La clé active est rangée là où vastai la range (C:\Users\<toi>\.config\vastai,
+en clair, c'est le fonctionnement de vastai). La liste des clés connues est dans
+C:\Users\<toi>\AppData\Roaming\Vast-Switch-Log\keys.json, chiffrée avec la
+protection Windows : seule ta session Windows sur ce PC peut la relire. Si tu
+changes de PC ou de session, il faudra ressaisir les clés.
+
+Sécurité
+--------
+Le script n'utilise que : show user, set api-key, show instances,
+search templates, update instance, recycle instance, reboot instance et logs.
+Les menus 1 et 4 ne font que lire ; le menu 5 ne touche qu'aux clés.
+Il ne détruit jamais une location et ne garde aucun hash dans ses fichiers.
+
+Affichage
+---------
+Les cadres et tableaux utilisent des caractères de dessin. Si tu vois des
+« ? » à la place des traits, choisis la police Consolas dans les propriétés
+de la fenêtre (clic droit sur la barre de titre > Propriétés > Police).
+
+Options (facultatif)
+--------------------
+Dans une fenêtre PowerShell, depuis le dossier du script :
+  .\vast-switch-log.bat -PollSeconds 30 -TimeoutSeconds 900
+  -Language        : auto (par défaut), fr ou en
+  -PollSeconds     : intervalle entre deux vérifications (15 s par défaut)
+  -TimeoutSeconds  : attente maximale du redémarrage (600 s par défaut)
+  -LogRefreshSeconds : rafraîchissement des logs en direct (5 s par défaut, 3 minimum)
