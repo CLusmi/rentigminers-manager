@@ -1,0 +1,168 @@
+﻿Salad-Switch-Log : gestion des groupes et machines SaladCloud
+==============================================================
+
+Lancement
+---------
+Windows : garde salad-switch-log.bat et salad-switch-log.ps1 dans le même
+dossier, puis double-clique sur salad-switch-log.bat.
+macOS : voir README.txt (en anglais) : PowerShell 7 à installer une fois,
+puis double-clic sur salad-switch-log.command ; la clé va dans le Trousseau.
+
+La langue suit celle du système (français -> français, sinon anglais) ;
+-Language en ou fr pour forcer (voir « Options »).
+
+Si Windows affiche « Windows a protégé votre ordinateur » : clique sur
+« Informations complémentaires », puis sur « Exécuter quand même ».
+Pour ne plus avoir ce message : clic droit sur chaque fichier > Propriétés >
+coche « Débloquer » > OK.
+
+Rien à installer : le script parle directement à l'API Salad.
+
+Première utilisation
+--------------------
+Le script demande :
+  - l'organisation et le projet : les deux noms dans l'adresse du portail,
+    portal.salad.com/organizations/ORGANISATION/projects/PROJET/containers ;
+  - une clé API : portail > ton organisation > API Access > Create key.
+La clé est testée, puis enregistrée chiffrée pour ta session Windows.
+
+Menu
+----
+1. Voir mes groupes
+   Tableau : état, machines en marche / demandées, cartes, priorité, image,
+   version, prix/h ; total par heure et par jour ; quota de replicas ; solde et
+   autonomie (voir menu S) ; ligne PRL : cours (CoinGecko, en $, variation
+   sur 24 h), hashrate du réseau, récompense et temps de bloc (whattomine),
+   rafraîchis toutes les 5 min.
+
+2. Voir les machines d'un groupe
+   Par machine : état, version, depuis quand, carte et hashrate (lus dans les
+   logs SRBMiner), prix/h, dernier verdict du chien de garde ; total /h et /jour,
+   et hashrate total des machines en marche (somme des dernières lectures).
+   « – » = rien dans les logs récents (machine en allocation, téléchargement…).
+   Sous le tableau, la rentabilité du hashrate total, source par source :
+     Rentabilité pour 3 412,8 TH/s  ·  coût 96,00 $/jour
+     Source       PRL/jour   $/jour    Résultat/jour
+     whattomine       71,4   73,52 $   -22,48 $
+     unMineable       64,9   67,53 $   -28,47 $
+     HeroMiners       71,0   73,25 $   -22,75 $
+   (une source qui ne répond pas est absente), puis,
+   si tu as enregistré une adresse (menu P), le tableau « Puissance » :
+   matériel / à la pool / ratio, par pool et en total.
+   Les nombres s'affichent à la française (1 234,56 $) en français et à
+   l'anglaise ($1,234.56) en anglais, quel que soit le réglage de Windows.
+   Les logs sont lus en parallèle, par petites fenêtres, 12 s maximum par
+   requête (au-delà, la fenêtre est coupée en deux et relue). Ce qui a été lu
+   est gardé en mémoire pendant la session : les affichages suivants ne vont
+   chercher que les lignes nouvelles. « partiel » = une partie des requêtes
+   n'a pas répondu, le tableau est affiché avec ce qui a été lu.
+
+3. Modifier un groupe
+   - Étiquette de l'image : la liste des étiquettes du dépôt Docker Hub
+     s'affiche, tu en choisis une (Salad ne re-télécharge une image que si
+     l'étiquette change). Redéploie toutes les machines, suivi puis logs.
+   - Nombre de replicas : sans redémarrage des machines en marche.
+   - Chien de garde : mode (observe / reallocate / désactivé), seuils par
+     carte, répit, lectures, redémarrages, lectures à 0 H/s, minutes sans
+     statistiques. Entrée = garder la valeur en place,
+     « aucun » = retirer la variable. Le script relit le groupe après coup et
+     affiche les variables réellement en place. Redéploie toutes les machines.
+   - Priorité (prix de chaque carte affiché pour chaque niveau). Redéploie.
+   - Mineur GPU et ses arguments (GPU_MINER, GPU_ARGS) : les cinq mineurs de
+     l'image rentingminers (srbminer, forgeminer, krigminer, peakminer,
+     rgminer) avec la forme des arguments de chacun ; choix par numéro ou par
+     valeur, puis saisie des arguments (chaque mineur a sa syntaxe, voir le
+     README de l'image). Entrée = garder la valeur en place. Relecture du
+     groupe après coup. Redéploie toutes les machines.
+
+4. Réallouer / recréer / redémarrer des machines
+   Choix des machines (1   1,3   2-4   T), puis :
+   - Réallouer : abandonner ce PC, en prendre un autre ;
+   - Recréer : nouveau conteneur sur le même PC ;
+   - Redémarrer : relance sur le même PC.
+   Suivi, puis résumé. Salad limite le nombre d'actions par minute (erreur 429).
+
+5. Logs en direct
+   Un groupe, toutes ses machines ou une seule, un filtre (tout, hashrates,
+   shares et erreurs, chien de garde [salad], messages de l'image, texte libre),
+   rafraîchi toutes les 5 s. Avec « toutes les machines », chaque ligne est
+   préfixée par les 8 premiers caractères de la machine. Q ou Échap = retour.
+
+6. Démarrer / arrêter un groupe
+   Stop coupe les machines et garde le groupe (ses replicas comptent toujours
+   dans le quota) ; Start le relance. Confirmation demandée.
+
+7. Cartes : prix et disponibilité
+   Toutes les classes GPU avec le prix à chaque priorité (High, Medium, Low,
+   Lowest), puis, pour les cartes que tu choisis, le nombre de machines
+   libres à cet instant par priorité (même chiffre que le formulaire du portail).
+
+8. Clés API Salad
+   Tableau des clés connues (organisation, projet, 4 derniers caractères).
+   Un numéro = basculer (la clé est retestée) ; A = ajouter ; S = retirer.
+
+S. Solde Salad
+   L'API Salad (clé API) ne donne pas le solde. Deux façons de l'avoir :
+   - Saisir le solde à la main (lu dans le portail, Billing & Usage), ex. 42,50.
+     Le menu 1 affiche ensuite une estimation : le solde saisi moins la dépense
+     au rythme actuel depuis la saisie (le plus élevé de la fourchette, par
+     prudence). Ressaisis-le après une recharge ou un changement de cartes.
+     Gardé dans balances.json, à côté de keys.json.
+   - Connecter le portail Salad : e-mail + mot de passe de ton compte Salad
+     (pas la clé API). Le script ouvre une session sur portal-api.salad.com,
+     l'API interne du portail (non documentée : Salad peut la changer), et lit
+     le solde réel à chaque affichage du menu 1. Le mot de passe est saisi
+     masqué, jamais affiché ; il n'est gardé sur ce PC que si tu le demandes
+     (chiffré comme les clés, dans portal.json). Sinon, menu S à chaque
+     lancement pour le ressaisir. En cas de panne du portail, le menu 1
+     retombe sur le solde saisi à la main en indiquant pourquoi.
+   Dans le menu 1 :
+     Solde : 42,50 $ (portail Salad, à l'instant)  ·  autonomie ≈ 21 h au rythme
+     actuel (2,000 $ /h)      — jaune sous 24 h, rouge sous 6 h.
+   Pour éviter l'arrêt surprise à 0 $, le portail propose aussi l'auto-recharge
+   (Billing → Auto Recharge).
+
+P. Pool : mon portefeuille
+   Tu donnes l'adresse PRL que tu mines sur HeroMiners et/ou unMineable
+   (gardée dans pools.json, à côté de keys.json ; une adresse est publique).
+   Le menu affiche d'abord le tableau « Puissance » :
+     Puissance      Matériel      À la pool      Ratio
+     HeroMiners     757,8 TH/s    687,2 TH/s     ×0,91
+     unMineable     757,8 TH/s    720,0 TH/s     ×0,95
+     Total cumulé   757,8 TH/s    1 407,2 TH/s   ×1,86
+   Matériel = hashrate total des logs (dernier menu 2) ; à la pool = ce que la
+   pool voit à l'instant ; ratio = pool ÷ matériel (vert ≥ 0,95, jaune de 0,85
+   à 0,95, rouge en dessous). Puis un cadre par pool : puissance (instant, 1 h,
+   24 h), workers actifs, gains (HeroMiners : hier, moyenne 7 jours, payé 24 h /
+   7 j ; unMineable : 24 h, 7 j, 30 j), solde en attente.
+   Le menu 2 affiche le même tableau « Puissance » sous la rentabilité.
+   Option 4 : une autre pool (sans API) avec un ratio saisi à la main (ex. 0,8)
+   apparaît dans le tableau de rentabilité comme « Kryptex (×0,80) ».
+
+9. Quitter (Q marche aussi)
+
+Clés et sécurité
+----------------
+Les clés sont dans C:\Users\<toi>\AppData\Roaming\Salad-Switch-Log\keys.json,
+chiffrées avec la protection Windows : seule ta session Windows sur ce PC peut
+les relire. Sur un autre PC ou une autre session, il faudra les ressaisir.
+Une clé API Salad donne tous les droits sur l'organisation : ne la partage pas.
+Le script ne supprime jamais un groupe ; les seules actions qui changent
+quelque chose sont dans les menus 3, 4 et 6, toujours après confirmation.
+
+Affichage
+---------
+Les cadres et tableaux utilisent des caractères de dessin. Si tu vois des
+« ? » à la place des traits, choisis la police Consolas dans les propriétés
+de la fenêtre (clic droit sur la barre de titre > Propriétés > Police).
+
+Options (facultatif)
+--------------------
+Dans une fenêtre PowerShell, depuis le dossier du script :
+  .\salad-switch-log.bat -PollSeconds 10 -TimeoutSeconds 900
+  -Language          : auto (par défaut), fr ou en
+  -PollSeconds       : intervalle de suivi des redéploiements (5 s par défaut)
+  -TimeoutSeconds    : attente maximale d'un redéploiement (600 s par défaut)
+  -LogRefreshSeconds : rafraîchissement des logs en direct (5 s par défaut, 3 minimum)
+Variable d'environnement SALAD_LOG_TIMEOUT : délai maximal d'une requête de
+logs, en secondes (12 par défaut), si Salad répond vraiment lentement.
