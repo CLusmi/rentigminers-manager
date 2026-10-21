@@ -1,15 +1,11 @@
 name: Construire et publier l'image
 
 # Lancement manuel (onglet Actions > "Run workflow") et a chaque modification
-# des fichiers de l'image (dossier rentingminers) sur la branche main. Les outils
-# Salad-Manager et Vast-Manager ne declenchent pas de construction.
+# des fichiers sur la branche main.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'rentingminers/**'
-      - '.github/workflows/build.yml'
 
 permissions:
   contents: read
@@ -25,7 +21,6 @@ jobs:
 
       - name: Trouver les dernieres versions des mineurs
         id: versions
-        working-directory: rentingminers
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -67,7 +62,7 @@ jobs:
       - name: Construire et envoyer sur Docker Hub
         uses: docker/build-push-action@v6
         with:
-          context: rentingminers
+          context: .
           platforms: linux/amd64
           push: true
           pull: true
