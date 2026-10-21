@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Lance un mineur sur les GPU (SRBMiner-MULTI, ForgeMiner, krig, PeakMiner ou RGminer)
-# et/ou un mineur sur le CPU (XMRig ou SRBMiner-MULTI). Les arguments sont passes aux
-# mineurs tels quels.
+# Lance un mineur sur les GPU (SRBMiner-MULTI, ForgeMiner, krig, PeakMiner, RGminer ou
+# WildRig Multi) et/ou un mineur sur le CPU (XMRig ou SRBMiner-MULTI). Les arguments
+# sont passes aux mineurs tels quels.
 #
 # Rien n'est lance par defaut : un cote demarre seulement si SON mineur ET SES
 # arguments sont renseignes. GPU seul, CPU seul ou les deux, au choix.
 #
 # Variables :
-#   GPU_MINER      srbminer | forgeminer | krigminer | peakminer | rgminer
+#   GPU_MINER      srbminer | forgeminer | krigminer | peakminer | rgminer | wildrig
+#                  (wildrig : OpenCL seulement, donc vast.ai et hotes Linux, pas SaladCloud)
 #   GPU_ARGS       arguments du mineur GPU, dans SA syntaxe (voir README.md) :
 #                  srbminer   --algorithm pearlhash --pool POOL:PORT --wallet ADRESSE --worker NOM
 #                  forgeminer --algorithm pearlhash --pool POOL:PORT --wallet ADRESSE --worker NOM
 #                  krigminer  --url POOL:PORT --user ADRESSE.NOM
 #                  peakminer  --coin pearl -o POOL:PORT -u ADRESSE -w NOM
 #                  rgminer    --algo pearl --proto herominers --stratum POOL:PORT --wallet ADRESSE --worker NOM
+#                  wildrig    -a pearlhash -o POOL:PORT -u ADRESSE.NOM
 #   CPU_MINER      xmrig | srbminer
 #   CPU_ARGS       arguments du mineur CPU
 #                  ex. --coin monero -o xmr.kryptex.network:7029 -u ADRESSE/RENT -t 184 -k
@@ -24,8 +26,8 @@
 # Pour les autres mineurs, ce script lit leur API de statistiques (HTTP, locale) toutes
 # les 30 s et ecrit la meme ligne, au meme format, pour que les outils (Salad-Switch-Log,
 # Vast-Switch-Log) lisent le hashrate de la meme facon quel que soit le mineur.
-# RGminer : lecture complete (API documentee). ForgeMiner, krig, PeakMiner : la premiere
-# reponse de l'API est recopiee telle quelle dans les logs, en attendant leur lecture.
+# RGminer : lecture complete (API documentee). ForgeMiner, krig, PeakMiner, WildRig : la
+# premiere reponse de l'API est recopiee telle quelle dans les logs, en attendant leur lecture.
 #
 # Chien de garde SaladCloud (actif seulement sur Salad, c'est-a-dire si Salad a
 # injecte SALAD_MACHINE_ID, seulement si SALAD_WATCHDOG est renseigne, et pour
@@ -49,6 +51,7 @@
 #   krig         : --no-tui --no-rocm --api-port 12000
 #   PeakMiner    : --no-color   (son API est deja active sur 127.0.0.1:4068)
 #   RGminer      : --plain-console --api-host 127.0.0.1 --api-port 9200 --watchdog=off
+#   WildRig      : --no-color --opencl-platforms nvidia --print-time 30 --api-port 4070
 #   SRBMiner CPU : --disable-gpu --disable-numa-binding --log-file (dans un dossier a part)
 #   XMRig        : --randomx-no-numa --no-color
 #
@@ -64,6 +67,7 @@ forge="$MINERS_DIR/forgeminer/forge"
 krig="$MINERS_DIR/krigminer/krig-miner"
 peak="$MINERS_DIR/peakminer/peakminer"
 rg="$MINERS_DIR/rgminer/rgminer"
+wild="$MINERS_DIR/wildrig/wildrig-multi"
 
 log() { echo "[rentingminers] $*"; }
 die() { echo "[rentingminers] ERREUR: $*" >&2; exit 1; }
@@ -76,6 +80,7 @@ gpu_miner_name() {
     krig|krigminer|krig-miner)   echo krigminer ;;
     peak|peakminer)              echo peakminer ;;
     rg|rgminer)                  echo rgminer ;;
+    wild|wildrig|wildrig-multi)  echo wildrig ;;
     *) echo "" ;;
   esac
 }
@@ -88,6 +93,7 @@ gpu_miner_binary() {
     krigminer)  echo "$krig" ;;
     peakminer)  echo "$peak" ;;
     rgminer)    echo "$rg" ;;
+    wildrig)    echo "$wild" ;;
   esac
 }
 
@@ -97,7 +103,7 @@ if [[ $# -gt 0 ]]; then
     exec "$@"
   fi
   direct=$(gpu_miner_name "${MINER:-srbminer}")
-  [[ -n "$direct" ]] || die "MINER=${MINER} inconnu. Valeurs possibles : srbminer, forgeminer, krigminer, peakminer, rgminer."
+  [[ -n "$direct" ]] || die "MINER=${MINER} inconnu. Valeurs possibles : srbminer, forgeminer, krigminer, peakminer, rgminer, wildrig."
   exec "$(gpu_miner_binary "$direct")" "$@"
 fi
 
@@ -263,7 +269,7 @@ gpu_on=0
 cpu_on=0
 if [[ -n "${GPU_MINER:-}" && -n "${GPU_ARGS:-}" ]]; then gpu_on=1
 elif [[ -n "${GPU_MINER:-}" ]]; then die "GPU_MINER est renseigne mais GPU_ARGS manque (ou vide)."
-elif [[ -n "${GPU_ARGS:-}" ]]; then die "GPU_ARGS est renseigne mais GPU_MINER manque (GPU_MINER=srbminer, forgeminer, krigminer, peakminer ou rgminer)."
+elif [[ -n "${GPU_ARGS:-}" ]]; then die "GPU_ARGS est renseigne mais GPU_MINER manque (GPU_MINER=srbminer, forgeminer, krigminer, peakminer, rgminer ou wildrig)."
 fi
 if [[ -n "${CPU_MINER:-}" && -n "${CPU_ARGS:-}" ]]; then cpu_on=1
 elif [[ -n "${CPU_MINER:-}" ]]; then die "CPU_MINER est renseigne mais CPU_ARGS manque (ou vide)."
@@ -281,9 +287,9 @@ gpu_miner=""
 # a interroger, dans l'ordre. Vide pour SRBMiner (il ecrit lui-meme son hashrate).
 gpu_api_urls=()
 if [[ $gpu_on -eq 1 ]]; then
-  [[ "$(lower "$GPU_MINER")" == xmrig ]] && die "GPU_MINER=xmrig : XMRig ne mine que sur CPU. Pour le GPU : srbminer, forgeminer, krigminer, peakminer ou rgminer."
+  [[ "$(lower "$GPU_MINER")" == xmrig ]] && die "GPU_MINER=xmrig : XMRig ne mine que sur CPU. Pour le GPU : srbminer, forgeminer, krigminer, peakminer, rgminer ou wildrig."
   gpu_miner=$(gpu_miner_name "$GPU_MINER")
-  [[ -n "$gpu_miner" ]] || die "GPU_MINER=${GPU_MINER} inconnu. Valeurs possibles : srbminer, forgeminer, krigminer, peakminer, rgminer."
+  [[ -n "$gpu_miner" ]] || die "GPU_MINER=${GPU_MINER} inconnu. Valeurs possibles : srbminer, forgeminer, krigminer, peakminer, rgminer, wildrig."
   gpu_bin=$(gpu_miner_binary "$gpu_miner")
   [[ -x "$gpu_bin" ]] || die "binaire introuvable : $gpu_bin"
   split_args "$GPU_ARGS" gpu_user
@@ -339,6 +345,19 @@ if [[ $gpu_on -eq 1 ]]; then
       # Le redemarrage interne de RGminer ferait doublon avec la relance de ce script.
       has_opt --watchdog "${gpu_user[@]}" || gpu_cmd+=(--watchdog=off)
       gpu_api_urls=("http://127.0.0.1:${api_port}/metrics")
+      ;;
+    wildrig)
+      # WildRig ne parle que OpenCL : il voit les cartes NVIDIA via le pilote OpenCL
+      # injecte par l'hote (vast.ai et hotes Linux). Sur SaladCloud (WSL2, pas
+      # d'OpenCL NVIDIA), il ne trouve aucune carte et s'arrete : ne pas l'y utiliser.
+      # --opencl-platforms nvidia : inutile de chercher des cartes AMD ou Intel.
+      # --print-time 30 : une ligne de hashrate toutes les 30 s dans les logs.
+      has_opt --no-color "${gpu_user[@]}"         || gpu_cmd+=(--no-color)
+      has_opt --opencl-platforms "${gpu_user[@]}" || gpu_cmd+=(--opencl-platforms nvidia)
+      has_opt --print-time "${gpu_user[@]}"       || gpu_cmd+=(--print-time 30)
+      api_port=$(opt_value --api-port "${gpu_user[@]}")
+      if [[ -z "$api_port" ]]; then api_port=4070; gpu_cmd+=(--api-port 4070); fi
+      gpu_api_urls=("http://127.0.0.1:${api_port}/" "http://127.0.0.1:${api_port}/1/summary")
       ;;
   esac
   gpu_cmd+=("${gpu_user[@]}")

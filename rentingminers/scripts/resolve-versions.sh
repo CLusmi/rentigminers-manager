@@ -18,6 +18,7 @@ MINERS=(
   "KRIG|kryptex/krig-miner|^krig-miner-[0-9.]+-linux-x64\\.tar\\.gz$"
   "PEAK|peakminer/peakminer|^peakminer-[0-9.]+-linux-x86_64$"
   "RG|Printscan/rgminer|^rgminer-[0-9.]+$"
+  "WILD|andru-kun/wildrig-multi|^wildrig-multi-linux-[0-9.]+\\.tar\\.gz$"
 )
 
 for entry in "${MINERS[@]}"; do
