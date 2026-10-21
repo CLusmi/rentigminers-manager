@@ -1,6 +1,7 @@
 # Image de minage pour GPU loues (vast.ai, SaladCloud, Clore.ai...) :
-#   - GPU NVIDIA : SRBMiner-MULTI, ForgeMiner, krig, PeakMiner ou RGminer
-#                  (GPU_MINER, GPU_ARGS)
+#   - GPU NVIDIA : SRBMiner-MULTI, ForgeMiner, krig, PeakMiner, RGminer ou WildRig
+#                  (GPU_MINER, GPU_ARGS). WildRig ne parle que OpenCL : vast.ai et
+#                  hotes Linux, pas SaladCloud (WSL2 n'a pas d'OpenCL NVIDIA).
 #   - CPU        : XMRig ou SRBMiner-MULTI (CPU_MINER, CPU_ARGS)
 # Un cote ne demarre que si son mineur ET ses arguments sont renseignes.
 # Sur SaladCloud, un chien de garde facultatif (SALAD_WATCHDOG, SRBMiner
@@ -39,6 +40,9 @@ ARG PEAK_SHA256
 ARG RG_VERSION
 ARG RG_URL
 ARG RG_SHA256
+ARG WILD_VERSION
+ARG WILD_URL
+ARG WILD_SHA256
 
 COPY scripts/fetch-miner.sh /usr/local/bin/fetch-miner
 RUN chmod +x /usr/local/bin/fetch-miner \
@@ -48,7 +52,8 @@ RUN chmod +x /usr/local/bin/fetch-miner \
     && fetch-miner forgeminer "$FORGE_VERSION" "$FORGE_URL" "$FORGE_SHA256" forge \
     && fetch-miner krigminer  "$KRIG_VERSION"  "$KRIG_URL"  "$KRIG_SHA256"  krig-miner \
     && fetch-miner peakminer  "$PEAK_VERSION"  "$PEAK_URL"  "$PEAK_SHA256"  peakminer \
-    && fetch-miner rgminer    "$RG_VERSION"    "$RG_URL"    "$RG_SHA256"    rgminer
+    && fetch-miner rgminer    "$RG_VERSION"    "$RG_URL"    "$RG_SHA256"    rgminer \
+    && fetch-miner wildrig    "$WILD_VERSION"  "$WILD_URL"  "$WILD_SHA256"  wildrig-multi
 
 # ---------------------------------------------------------------------------
 # Etape 2 : image finale, sans outils de telechargement
@@ -57,7 +62,8 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 # ca-certificates : connexions TLS aux pools.
-# ocl-icd-libopencl1 : chargeur OpenCL, que SRBMiner ouvre au demarrage.
+# ocl-icd-libopencl1 : chargeur OpenCL, que SRBMiner ouvre au demarrage et par
+# lequel WildRig voit les cartes.
 # wget : demande par SRBMiner (il s'arrete sans lui si sa connexion directe a
 # ses serveurs de frais echoue) ; sert aussi a lire l'API de stats des autres
 # mineurs (rapport de hashrate dans les logs).
@@ -70,15 +76,30 @@ RUN apt-get update \
 
 COPY --from=fetch /opt/miners /opt/miners
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# WildRig ne parle que OpenCL. Le chargeur (ocl-icd) trouve les pilotes grace aux
+# fichiers de /etc/OpenCL/vendors ; l'hote injecte libnvidia-opencl.so.1 dans le
+# conteneur (capacite "compute") mais pas ce fichier de declaration : on le cree ici.
+# Sans pilote OpenCL NVIDIA sur l'hote (SaladCloud : WSL2), le chargeur ignore la
+# ligne et les autres mineurs (CUDA) ne voient aucune difference.
 RUN chmod 0755 /usr/local/bin/entrypoint.sh \
-    && mkdir -p /opt/miners/work
+    && mkdir -p /opt/miners/work /etc/OpenCL/vendors \
+    && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
+
+# Verification : les bibliotheques partagees que WildRig charge au demarrage sont
+# toutes dans l'image (sinon il s'arreterait aussitot, code 127, en boucle).
+# libOpenCL.so.1 vient de ocl-icd-libopencl1 ; la bibliotheque NVIDIA elle-meme est
+# ouverte plus tard par le chargeur, elle n'apparait pas ici.
+RUN if ldd /opt/miners/wildrig/wildrig-multi 2>&1 | grep -F 'not found'; then \
+      echo "ERREUR: bibliotheque manquante pour WildRig (a ajouter dans apt-get install ci-dessus)." >&2; \
+      exit 1; \
+    fi
 
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
     RESTART_DELAY=10
 
 LABEL org.opencontainers.image.title="rentingminers" \
-      org.opencontainers.image.description="GPU NVIDIA : SRBMiner-MULTI, ForgeMiner, krig, PeakMiner ou RGminer (GPU_MINER, GPU_ARGS) ; CPU : XMRig ou SRBMiner-MULTI (CPU_MINER, CPU_ARGS)"
+      org.opencontainers.image.description="GPU NVIDIA : SRBMiner-MULTI, ForgeMiner, krig, PeakMiner, RGminer ou WildRig (GPU_MINER, GPU_ARGS) ; CPU : XMRig ou SRBMiner-MULTI (CPU_MINER, CPU_ARGS)"
 
 WORKDIR /opt/miners/work
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
