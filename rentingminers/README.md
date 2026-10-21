@@ -2,8 +2,7 @@
 
 Image Docker pour miner sur des machines louées (vast.ai, SaladCloud, Clore.ai…) :
 
-- **GPU NVIDIA** : SRBMiner-MULTI, ForgeMiner, krig (Kryptex), PeakMiner, RGminer ou WildRig
-  Multi, au choix (WildRig : vast.ai et hôtes Linux seulement, pas SaladCloud, voir plus bas) ;
+- **GPU NVIDIA** : SRBMiner-MULTI, ForgeMiner, krig (Kryptex), PeakMiner ou RGminer, au choix ;
 - **CPU** : XMRig ou SRBMiner-MULTI.
 
 GPU seul, CPU seul ou les deux : **rien ne démarre sans choix explicite**. Les arguments
@@ -18,8 +17,7 @@ Le workflow GitHub (`.github/workflows/build.yml`) :
 
 1. cherche la **dernière version stable** de chaque mineur sur sa page GitHub officielle
    (`doktor83/SRBMiner-Multi`, `xmrig/xmrig`, `0xHashRaptor/ForgeMiner`,
-   `kryptex/krig-miner`, `peakminer/peakminer`, `Printscan/rgminer`,
-   `andru-kun/wildrig-multi`) ;
+   `kryptex/krig-miner`, `peakminer/peakminer`, `Printscan/rgminer`) ;
 2. télécharge le fichier Linux (archive `.tar.gz`, ou binaire nu pour PeakMiner et
    RGminer) et **vérifie son empreinte SHA-256** (celle que GitHub a enregistrée quand
    l'auteur a publié le fichier) ; il vérifie aussi que c'est bien un exécutable Linux :
@@ -43,10 +41,8 @@ relance simplement le workflow.
 ## Mise en place (une seule fois)
 
 1. **Docker Hub** : dépôt `rentingminers` (public).
-2. **GitHub** : les fichiers de l'image dans le dossier `rentingminers` du dépôt
-   (`Dockerfile`, `entrypoint.sh`, dossier `scripts`) et le workflow **à la racine** du
-   dépôt, dans `.github/workflows/build.yml`. Le workflow ne se lance que si un fichier de
-   `rentingminers` change (ou à la main).
+2. **GitHub** : les fichiers **à la racine** du dépôt, dossiers `.github` et `scripts`
+   compris.
 3. *Settings → Secrets and variables → Actions* : `DOCKERHUB_USERNAME` (`clusmi`) et
    `DOCKERHUB_TOKEN`.
 4. Onglet **Actions** → *Construire et publier l'image* → **Run workflow**.
@@ -55,7 +51,7 @@ relance simplement le workflow.
 
 | Variable | Valeurs | Rôle |
 |---|---|---|
-| `GPU_MINER` | `srbminer`, `forgeminer`, `krigminer`, `peakminer`, `rgminer` ou `wildrig` | mineur GPU |
+| `GPU_MINER` | `srbminer`, `forgeminer`, `krigminer`, `peakminer` ou `rgminer` | mineur GPU |
 | `GPU_ARGS` | | arguments du mineur GPU, tels quels, **dans sa syntaxe** (voir [Mineurs GPU](#mineurs-gpu--arguments-mineur-par-mineur)) |
 | `CPU_MINER` | `xmrig` ou `srbminer` | mineur CPU |
 | `CPU_ARGS` | | arguments du mineur CPU, tels quels |
@@ -89,14 +85,13 @@ Pearl (`prl1p…`) et `NOM` le nom du worker ; le format exact du worker (`--wor
 `ADRESSE.NOM` ou `ADRESSE/NOM`) est celui qu'attend ta pool. Pour vérifier un
 `GPU_ARGS` sans miner : `DRY_RUN=1`, la commande complète s'affiche dans les logs.
 
-| | `srbminer` | `forgeminer` | `krigminer` | `peakminer` | `rgminer` | `wildrig` |
-|---|---|---|---|---|---|---|
-| Projet | doktor83/SRBMiner-Multi | 0xHashRaptor/ForgeMiner | kryptex/krig-miner | peakminer/peakminer | Printscan/rgminer | andru-kun/wildrig-multi |
-| Frais Pearl | 2 % | 2 % | 0 % | 2 % | 2 % | 0 % (voir sa section) |
-| Pilote NVIDIA | — | 5090 : **580 ou plus** | CUDA (version non documentée) | compatible CUDA 12 | non documenté | 450.80 ou plus |
-| Sur SaladCloud | oui | oui | oui | oui | oui | **non** (OpenCL) |
-| Hashrate dans les logs | écrit par le mineur | lu sur son API (pas encore) | lu sur son API (pas encore) | lu sur son API (pas encore) | **lu sur son API** | lu sur son API (pas encore) |
-| Chien de garde Salad | **oui** | non (pour l'instant) | non | non | non | sans objet |
+| | `srbminer` | `forgeminer` | `krigminer` | `peakminer` | `rgminer` |
+|---|---|---|---|---|---|
+| Projet | doktor83/SRBMiner-Multi | 0xHashRaptor/ForgeMiner | kryptex/krig-miner | peakminer/peakminer | Printscan/rgminer |
+| Frais Pearl | 2 % | 2 % | 0 % | 2 % | 2 % |
+| Pilote NVIDIA | — | 5090 : **580 ou plus** | CUDA (version non documentée) | compatible CUDA 12 | non documenté |
+| Hashrate dans les logs | écrit par le mineur | lu sur son API (pas encore) | lu sur son API (pas encore) | lu sur son API (pas encore) | **lu sur son API** |
+| Chien de garde Salad | **oui** | non (pour l'instant) | non | non | non |
 
 Tous ces mineurs sont des binaires fermés publiés par leurs auteurs ; l'image les
 télécharge depuis leur page GitHub et vérifie leur empreinte, rien de plus.
@@ -232,56 +227,6 @@ GPU_ARGS=--algo pearl --proto kryptex --stratum stratum+tls://POOL:PORT,POOL2:PO
 l'image. Les pools absentes de la liste `--proto` (unMineable par exemple) ne sont pas
 documentées par l'auteur : à tester.
 
-### `wildrig` — WildRig Multi
-
-**vast.ai et hôtes Linux seulement.** WildRig ne parle que OpenCL, jamais CUDA. Sur un hôte
-Linux, le runtime NVIDIA injecte le pilote OpenCL de la carte dans le conteneur, et l'image
-le déclare au chargeur OpenCL (fichier `/etc/OpenCL/vendors/nvidia.icd`) : WildRig voit les
-cartes. Sur SaladCloud, les conteneurs tournent dans WSL2, où le pilote NVIDIA n'offre pas
-d'OpenCL : WildRig ne trouve aucune carte, s'arrête, et l'image le relance en boucle. Ne
-l'utilise pas sur Salad (Salad-Switch-Log ne le propose d'ailleurs pas).
-
-| Rôle | Option |
-|---|---|
-| Algorithme | `-a pearlhash` (`--algo`) |
-| Pool | `-o POOL:PORT` (`--url`) ; TLS : `stratum+ssl://POOL:PORT` d'après les guides des pools, **à tester** ; plusieurs `-o` = secours (`--retries` règle le passage au secours) |
-| Wallet | `-u ADRESSE` (`--user`) |
-| Worker | **pas d'option** pour pearlhash (`-w` ne sert qu'aux algorithmes progpow) : dans le wallet, `-u ADRESSE.NOM` ou `ADRESSE/NOM` selon la pool |
-| Mot de passe | `-p x` |
-| Cartes | `-d 0,1` (`--gpu-list`) |
-| API de stats | `--api-port PORT` |
-| Ajouté par l'image | `--no-color`, `--opencl-platforms nvidia`, `--print-time 30`, `--api-port 4070` |
-
-```
-GPU_MINER=wildrig
-GPU_ARGS=-a pearlhash -o POOL:PORT -u ADRESSE.NOM
-```
-
-Avec le mot de passe et le noyau économe en énergie :
-
-```
-GPU_ARGS=-a pearlhash -o POOL:PORT -u ADRESSE.NOM -p x --pearlhash-kernel 2
-```
-
-À savoir sur WildRig :
-
-- **Frais** : pearlhash n'est dans aucune tranche de frais de son README, donc 0 %. Ses
-  notes de version répètent pourtant « dev-fee is 0% with pearlhash.xyz pool » : lis la
-  ligne de frais qu'il affiche au démarrage avec ta pool, et compare sur le hashrate vu par
-  la pool (menu P des outils).
-- **Pilote NVIDIA** : 450.80.02 ou plus, c'est-à-dire n'importe quel hôte loué.
-- **Température** : par défaut WildRig **arrête de miner à 85 °C** et ne reprend qu'à 60 °C
-  (`--gpu-temp-limit`, `--gpu-temp-resume`). Sur une carte louée qui chauffe, ça fait des
-  trous dans le hashrate ; ajuste ces options dans tes arguments si besoin, l'image ne les
-  touche pas.
-- `--pearlhash-kernel 2` : noyau qui consomme moins pour un peu moins de hashrate. Sur une
-  location payée à l'heure, le noyau par défaut (hashrate maximal) est le bon choix.
-- Le `--watchdog` de WildRig reste coupé (son défaut) : l'image relance déjà le mineur s'il
-  s'arrête.
-- Le contenu de son archive et le format de son API n'ont pas encore été vus en vrai : la
-  construction de l'image vérifie que le binaire est seul et que ses bibliothèques sont
-  présentes ; le premier lancement recopie la réponse de son API dans les logs.
-
 ### Ce que l'image ajoute automatiquement
 
 Les arguments partent tels quels, l'image ajoute seulement ce qu'il faut pour tourner
@@ -294,7 +239,6 @@ dans un conteneur. **Une option déjà présente dans tes arguments n'est pas aj
 | krig | `--no-tui`, `--no-rocm`, `--api-port 12000` | logs ligne par ligne ; pas de carte AMD ici ; API de stats |
 | PeakMiner | `--no-color` | logs lisibles (son API est déjà active) |
 | RGminer | `--plain-console`, `--api-host 127.0.0.1`, `--api-port 9200`, `--watchdog=off` | logs lisibles ; API de stats ; pas de double redémarrage |
-| WildRig | `--no-color`, `--opencl-platforms nvidia`, `--print-time 30`, `--api-port 4070` | logs lisibles ; cartes NVIDIA seulement ; une ligne de hashrate toutes les 30 s ; API de stats |
 | SRBMiner CPU | `--disable-gpu`, `--disable-numa-binding`, `--log-file` | CPU seulement ; voir « machines à plusieurs processeurs » |
 | XMRig | `--randomx-no-numa`, `--no-color` | idem ; logs lisibles |
 
@@ -317,8 +261,8 @@ les 30 s et écrit elle-même la même ligne, au même format :
 `GPU0 NVIDIA GeForce RTX 5090: 385.20 TH/s`.
 
 - **RGminer** : fait (API documentée par l'auteur).
-- **ForgeMiner, krig, PeakMiner, WildRig** : le format de leur API n'est pas documenté.
-  L'image recopie **une fois** la première réponse de chaque URL dans les logs (ligne
+- **ForgeMiner, krig, PeakMiner** : le format de leur API n'est pas documenté. L'image
+  recopie **une fois** la première réponse de chaque URL dans les logs (ligne
   `[rentingminers] API forgeminer, reponse brute de …`) ; envoie ces lignes pour que la
   lecture soit écrite. En attendant, pas de hashrate dans les outils pour ces mineurs.
 - Si l'API ne répond pas après dix essais, une ligne `API … injoignable` le dit : le
@@ -357,10 +301,6 @@ GPU_ARGS=--coin pearl -o POOL:PORT -u ADRESSE_PEARL -w FARM
 GPU_MINER=rgminer
 GPU_ARGS=--algo pearl --proto herominers --stratum POOL:PORT --wallet ADRESSE_PEARL --worker FARM
 ```
-```
-GPU_MINER=wildrig
-GPU_ARGS=-a pearlhash -o POOL:PORT -u ADRESSE_PEARL.FARM
-```
 
 **DragonX seul (CPU, SRBMiner)** :
 
@@ -379,8 +319,8 @@ CPU_ARGS=--algorithm randomdrgx --pool POOL:PORT --wallet ADRESSE_DRAGONX.RENT -
 ```
 
 Le nom du worker suit le format attendu par la pool : `--worker` (SRBMiner, ForgeMiner,
-PeakMiner, RGminer), `wallet.worker` ou `wallet/worker` (krig, WildRig, Kryptex pour
-Monero). Sans worker, ça mine quand même.
+PeakMiner, RGminer), `wallet.worker` ou `wallet/worker` (krig, Kryptex pour Monero). Sans
+worker, ça mine quand même.
 
 Quelques algorithmes CPU de SRBMiner (liste complète sur sa page GitHub) : `randomdrgx`
 (DragonX), `verushash` (Verus), `randomepic` (Epic Cash), `randomx` (Monero).
@@ -452,9 +392,9 @@ tous les replicas.
 ## À savoir
 
 - **Frais** : chaque mineur prélève des frais de développeur fixés par son auteur
-  (Pearl : SRBMiner, ForgeMiner, PeakMiner et RGminer 2 %, krig et WildRig 0 % ; XMRig
-  1 % ; SRBMiner 0,85 % pour randomdrgx). Compare les mineurs sur le hashrate vu par la
-  pool (menu P des outils), pas sur celui qu'ils affichent.
+  (Pearl : SRBMiner, ForgeMiner, PeakMiner et RGminer 2 %, krig 0 % ; XMRig 1 % ;
+  SRBMiner 0,85 % pour randomdrgx). Compare les mineurs sur le hashrate vu par la pool
+  (menu P des outils), pas sur celui qu'ils affichent.
 - **Pilotes** : sur une machine louée, le pilote NVIDIA est celui de l'hôte. Un mineur qui
   l'exige plus récent s'arrête au démarrage et l'image le relance en boucle ; c'est visible
   dans les logs (`Le mineur GPU s'est arrete (code …)`). Sur Salad, réalloue la machine.
@@ -467,15 +407,14 @@ tous les replicas.
 - **Vérifier un template** : ajoute `DRY_RUN=1`, le log montre les commandes exactes.
 - **Lancer un mineur à la main** : `docker run --rm --gpus all clusmi/rentingminers --help`
   lance SRBMiner avec ces arguments ; `-e MINER=rgminer` (ou forgeminer, krigminer,
-  peakminer, wildrig) pour un autre mineur.
+  peakminer) pour un autre mineur.
 
 ## Dépannage
 
 - **`rien a miner`** : aucun côté n'est complet. Il faut `GPU_MINER` + `GPU_ARGS` et/ou
   `CPU_MINER` + `CPU_ARGS`.
 - **`GPU_MINER=... inconnu`** : valeurs possibles `srbminer`, `forgeminer`, `krigminer`,
-  `peakminer`, `rgminer`, `wildrig` (les raccourcis `forge`, `krig`, `peak`, `rg`, `wild`
-  marchent aussi).
+  `peakminer`, `rgminer` (les raccourcis `forge`, `krig`, `peak`, `rg` marchent aussi).
 - **`CPU_ARGS est renseigne mais CPU_MINER manque`** (et variantes) : un côté a l'une de
   ses deux variables sans l'autre ; complète-le ou vide les deux.
 - **`variables d'une ancienne version ignorees`** : le conteneur reçoit aussi les anciens
@@ -488,14 +427,9 @@ tous les replicas.
 - **Le mineur GPU s'arrête aussitôt et se relance en boucle** : ses propres lignes, juste
   avant `Le mineur GPU s'est arrete`, disent pourquoi : option inconnue (vérifie la
   syntaxe **de ce mineur**, pas celle de SRBMiner), pilote trop ancien, pool injoignable.
-- **Pas de hashrate dans Salad-Switch-Log / Vast-Switch-Log** avec ForgeMiner, krig,
-  PeakMiner ou WildRig : normal pour l'instant (voir
-  [Hashrate dans les logs](#hashrate-dans-les-logs)) ; envoie la ligne `reponse brute` des logs.
-- **WildRig s'arrête aussitôt en disant qu'il ne trouve aucune carte ou aucune plateforme
-  OpenCL** : l'hôte n'expose pas d'OpenCL NVIDIA. Sur SaladCloud (WSL2) c'est normal, WildRig
-  n'y marche pas : prends un autre mineur. Sur vast.ai, vérifie que `nvidia-smi` marche dans
-  le conteneur (runtime NVIDIA) et que le fichier `/etc/OpenCL/vendors/nvidia.icd` de l'image
-  est bien là.
+- **Pas de hashrate dans Salad-Switch-Log / Vast-Switch-Log** avec ForgeMiner, krig ou
+  PeakMiner : normal pour l'instant (voir [Hashrate dans les logs](#hashrate-dans-les-logs)) ;
+  envoie la ligne `reponse brute` des logs.
 - **`API ... injoignable`** : le mineur n'a pas démarré ou son API est coupée par tes
   arguments (`-a 0` pour PeakMiner, par exemple).
 - **Hashrate CPU très bas** : cherche `slow mode` (XMRig) dans les logs, et vérifie que la
