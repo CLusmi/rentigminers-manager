@@ -41,8 +41,10 @@ relance simplement le workflow.
 ## Mise en place (une seule fois)
 
 1. **Docker Hub** : dépôt `rentingminers` (public).
-2. **GitHub** : les fichiers **à la racine** du dépôt, dossiers `.github` et `scripts`
-   compris.
+2. **GitHub** : les fichiers de l'image dans le dossier `rentingminers` du dépôt
+   (`Dockerfile`, `entrypoint.sh`, dossier `scripts`) et le workflow **à la racine** du
+   dépôt, dans `.github/workflows/build.yml`. Le workflow ne se lance que si un fichier de
+   `rentingminers` change (ou à la main).
 3. *Settings → Secrets and variables → Actions* : `DOCKERHUB_USERNAME` (`clusmi`) et
    `DOCKERHUB_TOKEN`.
 4. Onglet **Actions** → *Construire et publier l'image* → **Run workflow**.
